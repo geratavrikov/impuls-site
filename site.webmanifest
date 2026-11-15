@@ -1,0 +1,14 @@
+{
+  "name": "Impuls — рекламное агентство полного цикла",
+  "short_name": "Impuls",
+  "description": "Яркие вывески под ключ в Астане: объёмные буквы, лайтбоксы, неон, стенды, баннеры.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0b0b0c",
+  "lang": "ru",
+  "icons": [
+    { "src": "assets/favicon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "assets/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}
