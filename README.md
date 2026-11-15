@@ -1,3 +1,13 @@
+<h2 align="center">
+  <a href="https://geratavrikov.github.io/impuls-site/">▶ ОТКРЫТЬ САЙТ</a>
+</h2>
+
+<p align="center"><sub><a href="https://geratavrikov.github.io/impuls-site/">https://geratavrikov.github.io/impuls-site/</a></sub></p>
+
+> Живая версия сайта — по ссылке выше. Ниже описание проекта и файлов.
+
+---
+
 # Impuls — сайт рекламного агентства (Астана)
 
 Готовый статический сайт-визитка: **1 страница** + страница политики конфиденциальности.
