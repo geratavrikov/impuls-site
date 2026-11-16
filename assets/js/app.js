@@ -274,7 +274,11 @@
     rail.addEventListener('click', function (e) {
       if (moved > 8) { e.preventDefault(); e.stopPropagation(); moved = 0; return; }
       var card = e.target.closest('.work');
-      if (card) openLightbox(parseInt(card.dataset.index, 10), card);
+      if (!card) return;
+      var idx = parseInt(card.dataset.index, 10);
+      /* клик по боковому фото — ставим его в центр, по центральному — открываем */
+      if (idx !== current) { goTo(idx); return; }
+      openLightbox(idx, card);
     });
   })();
 
