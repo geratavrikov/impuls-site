@@ -164,7 +164,7 @@
   var photos = [];
   var lbTrigger = null;
 
-  if (rail) {
+  if (rail) (function () {
     var frag = document.createDocumentFragment();
     for (var i = 1; i <= WORK_COUNT; i++) {
       photos.push('assets/works/work-' + pad(i) + '.jpg');
@@ -187,6 +187,7 @@
 
     var current = 0;
     var animating = false;
+    var lockUntil = 0;
     var animId = 0;
     var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
@@ -207,9 +208,6 @@
       return best;
     }
 
-    var animId = 0;
-    var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-
     function goTo(idx) {
       if (!cards.length) return;
       idx = Math.max(0, Math.min(cards.length - 1, idx));
@@ -220,7 +218,8 @@
       setActive(idx);
       var myId = ++animId;
       animating = true;
-      if (reduceMotion.matches || Math.abs(dist) < 2) { rail.scrollLeft = to; animating = false; return; }
+      lockUntil = 0;
+      if (reduceMotion.matches || Math.abs(dist) < 2) { rail.scrollLeft = to; animating = false; lockUntil = performance.now() + 220; return; }
       var dur = Math.min(700, Math.max(260, Math.abs(dist) * 0.8));
       var t0 = 0;
       function frame(now) {
@@ -230,7 +229,7 @@
         var e = 1 - Math.pow(1 - p, 3);
         rail.scrollLeft = from + dist * e;
         if (p < 1) requestAnimationFrame(frame);
-        else animating = false;
+        else { animating = false; lockUntil = performance.now() + 220; setActive(idx); }
       }
       requestAnimationFrame(frame);
     }
@@ -239,9 +238,12 @@
     rail.addEventListener('scroll', function () {
       if (animating || ticking) return;
       ticking = true;
-      requestAnimationFrame(function () { ticking = false; setActive(activeIndex()); });
-    }, { passive: true });
-    window.addEventListener('resize', function () { setActive(activeIndex()); });
+      requestAnimationFrame(function () {
+        ticking = false;
+        if (animating || performance.now() < lockUntil) return;
+        setActive(activeIndex());
+      });
+    }, { passive: true });    window.addEventListener('resize', function () { setActive(activeIndex()); });
     setActive(0);
 
     /* стрелки: одна карточка за нажатие */
@@ -254,6 +256,7 @@
     rail.addEventListener('pointerdown', function (e) {
       if (e.pointerType !== 'mouse') return;
       isDown = true; moved = 0;
+      animId++; animating = false; lockUntil = 0;
       startX = e.clientX; startLeft = rail.scrollLeft;
       rail.style.cursor = 'grabbing';
     });
@@ -273,7 +276,7 @@
       var card = e.target.closest('.work');
       if (card) openLightbox(parseInt(card.dataset.index, 10), card);
     });
-  }
+  })();
 
   /* ---------- лайтбокс ---------- */
   function renderLb() {
