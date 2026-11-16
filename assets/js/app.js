@@ -175,8 +175,7 @@
       btn.dataset.index = String(i - 1);
       btn.innerHTML =
         '<img src="assets/works/thumb/work-' + pad(i) + '.jpg" alt="" width="720" height="720" loading="lazy" decoding="async">' +
-        '<span class="work__cap"><span>Работа ' + pad(i) + ' · Астана</span>' +
-        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M11 8v6M8 11h6"/></svg></span>';
+        '<span class="work__cap"><span>Работа ' + pad(i) + ' · Астана</span></span>';
       frag.appendChild(btn);
     }
     rail.appendChild(frag);
@@ -219,7 +218,7 @@
       var myId = ++animId;
       animating = true;
       lockUntil = 0;
-      if (reduceMotion.matches || Math.abs(dist) < 2) { rail.scrollLeft = to; animating = false; lockUntil = performance.now() + 220; return; }
+      if (reduceMotion.matches || Math.abs(dist) < 2) { rail.scrollLeft = to; paint(); animating = false; lockUntil = performance.now() + 220; return; }
       var dur = Math.min(700, Math.max(260, Math.abs(dist) * 0.8));
       var t0 = 0;
       function frame(now) {
@@ -228,28 +227,62 @@
         var p = Math.min(1, (now - t0) / dur);
         var e = 1 - Math.pow(1 - p, 3);
         rail.scrollLeft = from + dist * e;
+        paint();
         if (p < 1) requestAnimationFrame(frame);
-        else { animating = false; lockUntil = performance.now() + 220; setActive(idx); }
+        else { animating = false; lockUntil = performance.now() + 220; setActive(idx); paint(); }
       }
       requestAnimationFrame(frame);
     }
 
+    /* объём: карточки разворачиваются и уменьшаются к краям — «парят в воздухе» */
+    function paint() {
+      if (reduceMotion.matches) {
+        for (var i = 0; i < cards.length; i++) cards[i].style.transform = '';
+        return;
+      }
+      var r = rail.getBoundingClientRect();
+      var mid = r.left + r.width / 2;
+      var span = Math.max(1, r.width * 0.62);
+      var centers = [], n = cards.length;
+      for (var j = 0; j < n; j++) {
+        var b = cards[j].getBoundingClientRect();
+        centers.push(b.left + b.width / 2);
+      }
+      for (var k = 0; k < n; k++) {
+        var t = (centers[k] - mid) / span;
+        t = Math.max(-1.6, Math.min(1.6, t));
+        var a = Math.min(1, Math.abs(t));
+        var rot = (-t * 13).toFixed(2);
+        var scale = (1 - a * 0.14).toFixed(3);
+        var ty = (a * 14).toFixed(1);
+        cards[k].style.transform = 'perspective(1400px) rotateY(' + rot + 'deg) scale(' + scale + ') translateY(' + ty + 'px)';
+      }
+    }
+
     var ticking = false;
     rail.addEventListener('scroll', function () {
-      if (animating || ticking) return;
+      if (ticking) return;
       ticking = true;
       requestAnimationFrame(function () {
         ticking = false;
+        paint();
         if (animating || performance.now() < lockUntil) return;
         setActive(activeIndex());
       });
-    }, { passive: true });    window.addEventListener('resize', function () { setActive(activeIndex()); });
+    }, { passive: true });    window.addEventListener('resize', function () { setActive(activeIndex()); paint(); });
     setActive(0);
+    requestAnimationFrame(paint);
 
     /* стрелки: одна карточка за нажатие */
     var prev = $('#railPrev'), next = $('#railNext');
     if (prev) prev.addEventListener('click', function () { goTo(current - 1); });
     if (next) next.addEventListener('click', function () { goTo(current + 1); });
+
+    /* отдельная кнопка: открыть текущее фото крупно */
+    var openBtn = $('#worksOpen');
+    if (openBtn) openBtn.addEventListener('click', function () {
+      if (cards.length) openLightbox(current, cards[current]);
+    });
 
     /* перетаскивание мышью */
     var isDown = false, startX = 0, startLeft = 0, moved = 0;
@@ -275,10 +308,8 @@
       if (moved > 8) { e.preventDefault(); e.stopPropagation(); moved = 0; return; }
       var card = e.target.closest('.work');
       if (!card) return;
-      var idx = parseInt(card.dataset.index, 10);
-      /* клик по боковому фото — ставим его в центр, по центральному — открываем */
-      if (idx !== current) { goTo(idx); return; }
-      openLightbox(idx, card);
+      /* клик по любому фото только перелистывает рулетку — без полноэкранного просмотра */
+      goTo(parseInt(card.dataset.index, 10));
     });
   })();
 

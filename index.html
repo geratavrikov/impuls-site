@@ -26,7 +26,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/style.css?v=20261116c">
+<link rel="stylesheet" href="assets/css/style.css?v=20261116d">
 
 <script type="application/ld+json">
 {
@@ -389,7 +389,7 @@
       <div class="section-head">
         <span class="eyebrow">Портфолио</span>
         <h2>Работы, которые уже на фасадах</h2>
-        <p>21 проект в галерее: вывески, лайтбоксы, неон и интерьерные решения. Листайте пальцем — в центре всегда одна работа. Нажмите на боковое фото — оно встанет в центр, нажмите на центральное — откроется во весь экран.</p>
+        <p>21 проект в галерее: вывески, лайтбоксы, неон и интерьерные решения. Фото парят в воздухе и перелистываются: нажмите на любое — рулетка плавно прокрутит его в центр.</p>
       </div>
       <div class="works__nav">
         <span class="works__count" id="worksCount" aria-live="polite">1 / 1</span>
@@ -404,10 +404,16 @@
 
     <div class="works__rail" id="worksRail" aria-label="Галерея работ"><!-- заполняется из JS --></div>
 
-    <p class="works__hint">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
-      21 работа · листайте вправо или нажмите на фото, чтобы увеличить
-    </p>
+    <div class="works__actions">
+      <button class="btn btn--ghost works__open" id="worksOpen" type="button">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M11 8v6M8 11h6"/></svg>
+        Открыть фото крупно
+      </button>
+      <p class="works__hint">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+        21 работа · нажмите на фото — оно плавно встанет в центр
+      </p>
+    </div>
   </div>
 </section>
 
@@ -886,6 +892,6 @@
   </div>
 </div>
 
-<script src="assets/js/app.js?v=20261116c"></script>
+<script src="assets/js/app.js?v=20261116d"></script>
 </body>
 </html>
