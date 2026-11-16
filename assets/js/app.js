@@ -12,16 +12,35 @@
   function $$(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
   function pad(n) { return n < 10 ? '0' + n : '' + n; }
 
-  /* ---------- шапка ---------- */
+  /* ---------- шапка, наверх, активный пункт меню ---------- */
   var header = $('#header');
   var toTop = $('#toTop');
-  function onScroll() {
+  var navLinks = $$('.nav a[href^="#"]');
+  var pageSections = $$('main > section');
+
+  var ticking = false;
+  function updateScrollUI() {
     var y = window.scrollY || window.pageYOffset;
-    header.classList.toggle('is-stuck', y > 8);
+    if (header) header.classList.toggle('is-stuck', y > 8);
     if (toTop) toTop.classList.toggle('is-visible', y > 600);
+
+    var currentId = '';
+    var probe = y + 150;
+    pageSections.forEach(function (section) {
+      if (section.offsetTop <= probe) currentId = section.id;
+    });
+    navLinks.forEach(function (a) {
+      a.classList.toggle('is-active', currentId !== '' && a.getAttribute('href') === '#' + currentId);
+    });
+    ticking = false;
   }
-  window.addEventListener('scroll', onScroll, { passive: true });
-  onScroll();
+  window.addEventListener('scroll', function () {
+    if (!ticking) {
+      ticking = true;
+      window.requestAnimationFrame(updateScrollUI);
+    }
+  }, { passive: true });
+  updateScrollUI();
 
   if (toTop) {
     toTop.addEventListener('click', function () {
@@ -32,6 +51,14 @@
   /* ---------- мобильное меню ---------- */
   var burger = $('#burger');
   var mobileMenu = $('#mobileMenu');
+  function closeMenu() {
+    document.body.classList.remove('menu-open');
+    if (burger) {
+      burger.setAttribute('aria-expanded', 'false');
+      burger.setAttribute('aria-label', 'Открыть меню');
+    }
+    document.body.style.overflow = '';
+  }
   if (burger && mobileMenu) {
     burger.addEventListener('click', function () {
       var open = document.body.classList.toggle('menu-open');
@@ -41,10 +68,11 @@
     });
     $$('a', mobileMenu).forEach(function (a) {
       a.addEventListener('click', function () {
-        document.body.classList.remove('menu-open');
-        burger.setAttribute('aria-expanded', 'false');
-        document.body.style.overflow = '';
+        closeMenu();
       });
+    });
+    window.addEventListener('resize', function () {
+      if (window.innerWidth > 1180 && document.body.classList.contains('menu-open')) closeMenu();
     });
   }
 
@@ -74,6 +102,7 @@
     var slides = $$('.hero-slider__slide', track);
     var current = 0;
     var timer = null;
+    var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     slides.forEach(function (_, i) {
       var b = document.createElement('button');
@@ -96,6 +125,8 @@
     }
 
     function play() {
+      if (reduceMotion) return;
+      stop();
       timer = window.setInterval(function () { go(current + 1); }, 5000);
     }
     function stop() { window.clearInterval(timer); }
@@ -117,7 +148,11 @@
       else play();
     });
 
-    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) play();
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) stop(); else play();
+    });
+
+    if (!reduceMotion) play();
   }
 
   /* ---------- галерея работ ---------- */
@@ -127,33 +162,92 @@
   var lbCount = $('#lbCount');
   var lbIndex = 0;
   var photos = [];
+  var lbTrigger = null;
 
   if (rail) {
     var frag = document.createDocumentFragment();
     for (var i = 1; i <= WORK_COUNT; i++) {
-      var src = 'assets/works/work-' + pad(i) + '.jpg';
-      photos.push(src);
+      photos.push('assets/works/work-' + pad(i) + '.jpg');
 
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'work';
-      btn.setAttribute('aria-label', 'Impuls · Астана — открыть фото ' + i);
       btn.dataset.index = String(i - 1);
       btn.innerHTML =
-        '<img src="assets/works/thumb/work-' + pad(i) + '.jpg" alt="Работа Impuls ' + i + ' — вывеска в Астане" width="720" height="720" loading="lazy" decoding="async">' +
-        '<span class="work__cap"><span>Impuls · Астана</span>' +
+        '<img src="assets/works/thumb/work-' + pad(i) + '.jpg" alt="" width="720" height="720" loading="lazy" decoding="async">' +
+        '<span class="work__cap"><span>Работа ' + pad(i) + ' · Астана</span>' +
         '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M11 8v6M8 11h6"/></svg></span>';
       frag.appendChild(btn);
     }
     rail.appendChild(frag);
 
-    /* стрелки */
-    var step = function () {
-      return Math.max(rail.clientWidth * 0.8, 280);
-    };
+    /* карусель-рулетка: активная карточка по центру */
+    var cards = [].slice.call(rail.querySelectorAll('.work'));
+    var counter = $('#worksCount');
+
+    var current = 0;
+    var animating = false;
+    var animId = 0;
+    var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    function setActive(idx) {
+      current = idx;
+      cards.forEach(function (c, i) { c.classList.toggle('is-active', i === idx); });
+      if (counter) counter.textContent = (idx + 1) + ' / ' + cards.length;
+    }
+
+    function activeIndex() {
+      var r = rail.getBoundingClientRect();
+      var mid = r.left + r.width / 2, best = 0, bestD = Infinity;
+      cards.forEach(function (c, i) {
+        var b = c.getBoundingClientRect();
+        var d = Math.abs(b.left + b.width / 2 - mid);
+        if (d < bestD) { bestD = d; best = i; }
+      });
+      return best;
+    }
+
+    var animId = 0;
+    var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    function goTo(idx) {
+      if (!cards.length) return;
+      idx = Math.max(0, Math.min(cards.length - 1, idx));
+      var r = rail.getBoundingClientRect();
+      var b = cards[idx].getBoundingClientRect();
+      var to = rail.scrollLeft + (b.left - r.left) - (rail.clientWidth - b.width) / 2;
+      var from = rail.scrollLeft, dist = to - from;
+      setActive(idx);
+      var myId = ++animId;
+      animating = true;
+      if (reduceMotion.matches || Math.abs(dist) < 2) { rail.scrollLeft = to; animating = false; return; }
+      var dur = Math.min(700, Math.max(260, Math.abs(dist) * 0.8));
+      var t0 = 0;
+      function frame(now) {
+        if (myId !== animId) return;
+        if (!t0) t0 = now;
+        var p = Math.min(1, (now - t0) / dur);
+        var e = 1 - Math.pow(1 - p, 3);
+        rail.scrollLeft = from + dist * e;
+        if (p < 1) requestAnimationFrame(frame);
+        else animating = false;
+      }
+      requestAnimationFrame(frame);
+    }
+
+    var ticking = false;
+    rail.addEventListener('scroll', function () {
+      if (animating || ticking) return;
+      ticking = true;
+      requestAnimationFrame(function () { ticking = false; setActive(activeIndex()); });
+    }, { passive: true });
+    window.addEventListener('resize', function () { setActive(activeIndex()); });
+    setActive(0);
+
+    /* стрелки: одна карточка за нажатие */
     var prev = $('#railPrev'), next = $('#railNext');
-    if (prev) prev.addEventListener('click', function () { rail.scrollBy({ left: -step(), behavior: 'smooth' }); });
-    if (next) next.addEventListener('click', function () { rail.scrollBy({ left: step(), behavior: 'smooth' }); });
+    if (prev) prev.addEventListener('click', function () { goTo(current - 1); });
+    if (next) next.addEventListener('click', function () { goTo(current + 1); });
 
     /* перетаскивание мышью */
     var isDown = false, startX = 0, startLeft = 0, moved = 0;
@@ -177,7 +271,7 @@
     rail.addEventListener('click', function (e) {
       if (moved > 8) { e.preventDefault(); e.stopPropagation(); moved = 0; return; }
       var card = e.target.closest('.work');
-      if (card) openLightbox(parseInt(card.dataset.index, 10));
+      if (card) openLightbox(parseInt(card.dataset.index, 10), card);
     });
   }
 
@@ -185,7 +279,7 @@
   function renderLb() {
     if (!lightbox) return;
     lbImg.src = photos[lbIndex];
-    lbImg.alt = 'Работа Impuls ' + (lbIndex + 1);
+    lbImg.alt = 'Работа Impuls ' + (lbIndex + 1) + ' — реклама в Астане';
     lbCount.textContent = (lbIndex + 1) + ' / ' + photos.length;
     /* предзагрузка соседних */
     [lbIndex + 1, lbIndex - 1].forEach(function (idx) {
@@ -196,18 +290,24 @@
     });
   }
 
-  function openLightbox(i) {
+  function openLightbox(i, trigger) {
     if (!lightbox || !photos.length) return;
     lbIndex = i;
+    lbTrigger = trigger || null;
     renderLb();
     lightbox.classList.add('is-open');
     document.body.style.overflow = 'hidden';
+    lightbox.focus({ preventScroll: true });
   }
 
   function closeLightbox() {
     if (!lightbox) return;
     lightbox.classList.remove('is-open');
     document.body.style.overflow = '';
+    if (lbTrigger) {
+      lbTrigger.focus({ preventScroll: true });
+      lbTrigger = null;
+    }
   }
 
   function stepLb(dir) {
@@ -231,48 +331,185 @@
     });
   }
 
-  document.addEventListener('keydown', function (e) {
-    if (lightbox && lightbox.classList.contains('is-open')) {
-      if (e.key === 'Escape') closeLightbox();
-      if (e.key === 'ArrowRight') stepLb(1);
-      if (e.key === 'ArrowLeft') stepLb(-1);
-    }
-    if (e.key === 'Escape' && modal && modal.classList.contains('is-open')) closeModal();
-  });
-
   /* ---------- модальное окно ---------- */
   var modal = $('#modal');
-  function openModal() {
+  var leadSelect = $('#leadService');
+  var modalTrigger = null;
+
+  function selectService(name) {
+    if (!leadSelect || !name) return;
+    for (var i = 0; i < leadSelect.options.length; i++) {
+      if (leadSelect.options[i].text === name) {
+        leadSelect.selectedIndex = i;
+        return;
+      }
+    }
+  }
+
+  function openModal(trigger, service) {
     if (!modal) return;
+    modalTrigger = trigger || document.activeElement;
+    selectService(service);
     modal.classList.add('is-open');
     document.body.style.overflow = 'hidden';
     var first = $('#leadName');
     if (first) window.setTimeout(function () { first.focus(); }, 120);
   }
+
   function closeModal() {
     if (!modal) return;
     modal.classList.remove('is-open');
     document.body.style.overflow = '';
+    if (modalTrigger && typeof modalTrigger.focus === 'function') {
+      modalTrigger.focus({ preventScroll: true });
+    }
+    modalTrigger = null;
   }
 
-  $$('[data-open-modal]').forEach(function (b) { b.addEventListener('click', openModal); });
+  $$('[data-open-modal]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      openModal(b, b.getAttribute('data-service'));
+    });
+  });
   if (modal) {
     $('#modalClose').addEventListener('click', closeModal);
     modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(); });
   }
 
+  /* ---------- клавиатура ---------- */
+  function trapFocus(box, e) {
+    var focusables = $$('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])', box)
+      .filter(function (el) { return el.offsetParent !== null; });
+    if (!focusables.length) return;
+    var first = focusables[0];
+    var last = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault(); last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault(); first.focus();
+    }
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (lightbox && lightbox.classList.contains('is-open')) {
+      if (e.key === 'Escape') { closeLightbox(); return; }
+      if (e.key === 'ArrowRight') { stepLb(1); return; }
+      if (e.key === 'ArrowLeft') { stepLb(-1); return; }
+      if (e.key === 'Tab') trapFocus(lightbox, e);
+      return;
+    }
+    if (modal && modal.classList.contains('is-open')) {
+      if (e.key === 'Escape') { closeModal(); return; }
+      if (e.key === 'Tab') trapFocus(modal, e);
+      return;
+    }
+    if (e.key === 'Escape' && document.body.classList.contains('menu-open')) closeMenu();
+  });
+
+  /* ---------- FAQ: открыт только один пункт ---------- */
+  var faqItems = $$('.faq__item');
+  faqItems.forEach(function (item) {
+    item.addEventListener('toggle', function () {
+      if (!item.open) return;
+      faqItems.forEach(function (other) {
+        if (other !== item) other.open = false;
+      });
+    });
+  });
+
   /* ---------- заявка → WhatsApp ---------- */
   var form = $('#leadForm');
   if (form) {
+    var nameEl = $('#leadName');
+    var phoneEl = $('#leadPhone');
+    var commentEl = $('#leadComment');
+    var consentEl = $('#leadConsent');
+    var fieldName = $('#fieldName');
+    var fieldPhone = $('#fieldPhone');
+    var consentWrap = $('#consentWrap');
+    var errName = $('#errName');
+    var errPhone = $('#errPhone');
+    var errConsent = $('#errConsent');
+
+    function setError(field, errEl, msg) {
+      if (field) field.classList.add('is-invalid');
+      if (errEl) { errEl.textContent = msg; errEl.classList.add('is-shown'); }
+    }
+
+    function clearErrors() {
+      [fieldName, fieldPhone, consentWrap].forEach(function (el) {
+        if (el) el.classList.remove('is-invalid');
+      });
+      [errName, errPhone, errConsent].forEach(function (el) {
+        if (el) { el.textContent = ''; el.classList.remove('is-shown'); }
+      });
+    }
+
+    function formatPhone(value) {
+      var d = value.replace(/\D/g, '');
+      if (!d) return '';
+      if (d.charAt(0) === '8') d = '7' + d.slice(1);
+      if (d.charAt(0) !== '7') d = '7' + d;
+      d = d.slice(0, 11);
+      if (d === '7') return '+7 ';
+      return '+7' +
+        (d.length > 1 ? ' (' + d.slice(1, 4) : '') +
+        (d.length >= 5 ? ') ' + d.slice(4, 7) : '') +
+        (d.length >= 8 ? '-' + d.slice(7, 9) : '') +
+        (d.length >= 10 ? '-' + d.slice(9, 11) : '');
+    }
+
+    if (phoneEl) {
+      phoneEl.addEventListener('input', function () {
+        phoneEl.value = formatPhone(phoneEl.value);
+        if (fieldPhone) fieldPhone.classList.remove('is-invalid');
+        if (errPhone) errPhone.classList.remove('is-shown');
+      });
+    }
+    if (nameEl) {
+      nameEl.addEventListener('input', function () {
+        if (fieldName) fieldName.classList.remove('is-invalid');
+        if (errName) errName.classList.remove('is-shown');
+      });
+    }
+    if (consentEl) {
+      consentEl.addEventListener('change', function () {
+        if (consentEl.checked && consentWrap) consentWrap.classList.remove('is-invalid');
+        if (consentEl.checked && errConsent) errConsent.classList.remove('is-shown');
+      });
+    }
+
     form.addEventListener('submit', function (e) {
       e.preventDefault();
-      var name = ($('#leadName').value || '').trim();
-      var phone = ($('#leadPhone').value || '').trim();
-      var service = $('#leadService').value;
-      var comment = ($('#leadComment').value || '').trim();
+      clearErrors();
 
-      if (!name) { $('#leadName').focus(); return; }
-      if (phone.replace(/\D/g, '').length < 10) { $('#leadPhone').focus(); return; }
+      var name = nameEl ? nameEl.value.trim() : '';
+      var phone = phoneEl ? phoneEl.value.trim() : '';
+      var service = leadSelect ? leadSelect.value : '';
+      var comment = commentEl ? commentEl.value.trim() : '';
+      var consent = consentEl ? consentEl.checked : true;
+      var firstInvalid = null;
+
+      if (name.length < 2) {
+        setError(fieldName, errName, 'Укажите имя — как к вам обращаться');
+        firstInvalid = nameEl;
+      }
+      if (phone.replace(/\D/g, '').length < 11) {
+        setError(fieldPhone, errPhone, 'Введите номер полностью: +7 705 111 62 11');
+        if (!firstInvalid) firstInvalid = phoneEl;
+      }
+      if (!consent) {
+        if (consentWrap) consentWrap.classList.add('is-invalid');
+        if (errConsent) {
+          errConsent.textContent = 'Отметьте согласие на обработку данных';
+          errConsent.classList.add('is-shown');
+        }
+        if (!firstInvalid) firstInvalid = consentEl;
+      }
+      if (firstInvalid) {
+        firstInvalid.focus();
+        return;
+      }
 
       var lines = [
         'Здравствуйте! Заявка с сайта Impuls.',
